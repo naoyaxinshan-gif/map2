@@ -1,20 +1,22 @@
 import pandas as pd
 import folium
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont 
 import os
 import base64
 from io import BytesIO
 import json
 import logging
-import webview  # ★追加: アプリウィンドウ表示用のライブラリ
+import webview
 
 # logging設定: UTF-8エンコーディングを指定し、エラーを捕捉
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s', encoding='utf-8')
 
-# --- 0. データ定義 ---
-SUPER_DATA = {
+# --- 0. データ定義 (既存データ + 追加データ) ---
+
+# 既存データ
+EXISTING_DATA = {
     'name': [
-        'ハローズ 御幸店', 'ハローズ 神辺モーddル店', 'ハローズ 南駅家店', 'エブリイ 駅家店',
+        'ハローズ 御幸店', 'ハローズ 神辺モール店', 'ハローズ 南駅家店', 'エブリイ 駅家店',
         'エブリイ 緑町店', 'ハローズ 緑町店', 'フレスタ アイネス店', 'フジ 福山三吉店',
         'ハローズ 山手店', 'フレスタ 蔵王店', 'ラ・ムー 駅家店', 'ハローズ 伊勢丘店',
         'ハローズ 新涯店'
@@ -34,10 +36,10 @@ SUPER_DATA = {
         133.392132
     ],
     'logo_file': [
-        'logo_harrows.png', 'logo_harrows.png', 'logo_harrows.png', 'logo_every.png',
-        'logo_every.png', 'logo_harrows.png', 'logo_fresta.png', 'logo_fuji.png',
-        'logo_harrows.png', 'logo_fresta.png', 'logo_lamu.png', 'logo_harrows.png',
-        'logo_harrows.png'
+        'logo_ハローズ.png', 'logo_ハローズ.png', 'logo_ハローズ.png', 'logo_エブリイ.png',
+        'logo_エブリイ.png', 'logo_ハローズ.png', 'logo_フレスタ.png', 'logo_フジ.png',
+        'logo_ハローズ.png', 'logo_フレスタ.png', 'logo_ラ・ムー.png', 'logo_ハローズ.png',
+        'logo_ハローズ.png'
     ],
     'website': [
         'https://www.halows.com/', 'https://www.halows.com/', 'https://www.halows.com/', 'https://www.super-every.co.jp/',
@@ -81,7 +83,105 @@ SUPER_DATA = {
         'ハローズ'
     ]
 }
-df = pd.DataFrame(SUPER_DATA)
+
+# 追加データ
+NEW_DATA = {
+    'name': [
+        'ハローズ 神辺店', 'ハローズ 戸手店', 'ハローズ 春日店', 'ハローズ 引野店', 'ハローズ 東福山店',
+        'ハローズ 手城店', 'ハローズ 水呑店', 'ハローズ 南松永店', 'ハローズ 沼南店',
+        'エブリイ 松永店', 'エブリイ瀬戸店', 'エブリイ御幸店', 'エブリイ神辺店', 'エブリイ本庄店',
+        'エブリイ蔵王店', 'エブリイ川口店', 'エブリイ伊勢丘店',
+        'フレスタ 福山三吉店', 'フレスタ 北吉津店', 'フレスタ 草戸店', 'フレスタ 多治米店',
+        '業務スーパー新市店', 'ラ・ムー 松永店', 'ラ・ムー 手城店', 'ディオ 福山南店',
+        'フジグラン神辺 食品館', 'オンリーワン 駅家店', 'オンリーワン 千田店', 'オンリーワン 旭ヶ丘店',
+        'オンリーワン 木之庄店', 'オンリーワン 山手店', 'オンリーワン 瀬戸店',
+        'ゆめタウン 蔵王', 'ゆめタウン福山', 'ザ・ビッグ 神辺店', 'ザ・ビッグ大門店',
+        'ミスターマックス新神辺店',
+        'なかやま牧場 ハート新徳田店', 'なかやま牧場 ハート加茂店', 'なかやま牧場［ﾊｰﾄ坪生店］', 'なかやま牧場 引野店',
+        'なかやま牧場 ハート木之庄店', 'なかやま牧場 ハート新涯店',
+        'マルナカ 加茂店', 'Ａ−プライス 福山店',
+        'ニチエー 柳津店', 'ニチエー さんらいず店', 'ニチエー 瀬戸店', 'ニチエー 沼南店',
+        '生鮮食品 おだ 春日店'
+    ],
+    'lat': [
+        34.549238, 34.549010, 34.511183, 34.500121, 34.490001,
+        34.484085, 34.446823, 34.443160, 34.387728,
+        34.442332, 34.475457, 34.540975, 34.547862, 34.486838,
+        34.503659, 34.468972, 34.504264,
+        34.495523, 34.497068, 34.478892, 34.468429,
+        34.545228, 34.446731, 34.483819, 34.465147,
+        34.545245, 34.549297, 34.518545, 34.492134,
+        34.496204, 34.494895, 34.471791,
+        34.504926, 34.487064, 34.557168, 34.494797,
+        34.540661,
+        34.548747, 34.568176, 34.527446, 34.496260,
+        34.498596, 34.454583,
+        34.560882, 34.494565,
+        34.439995, 34.453543, 34.473304, 34.386952,
+        34.510628
+    ],
+    'lon': [
+        133.377984, 133.283165, 133.415063, 133.406021, 133.410593,
+        133.392729, 133.386847, 133.254940, 133.323727,
+        133.251304, 133.317128, 133.348727, 133.382452, 133.350845,
+        133.394152, 133.383982, 133.423391,
+        133.378392, 133.365369, 133.360637, 133.370928,
+        133.293464, 133.243272, 133.398270, 133.383363,
+        133.357068, 133.326900, 133.365520, 133.422231,
+        133.353517, 133.337047, 133.314893,
+        133.400447, 133.378583, 133.389616, 133.438232,
+        133.362873,
+        133.371937, 133.346001, 133.439373, 133.400904,
+        133.354959, 133.393429,
+        133.347027, 133.397965,
+        133.263470, 133.256207, 133.314423, 133.324780,
+        133.413331
+    ],
+    'brand': [
+        'ハローズ', 'ハローズ', 'ハローズ', 'ハローズ', 'ハローズ',
+        'ハローズ', 'ハローズ', 'ハローズ', 'ハローズ',
+        'エブリイ', 'エブリイ', 'エブリイ', 'エブリイ', 'エブリイ',
+        'エブリイ', 'エブリイ', 'エブリイ',
+        'フレスタ', 'フレスタ', 'フレスタ', 'フレスタ',
+        '業務スーパー', 'ラ・ムー', 'ラ・ムー', 'ディオ',
+        'フジ', 'オンリーワン', 'オンリーワン', 'オンリーワン',
+        'オンリーワン', 'オンリーワン', 'オンリーワン',
+        'ゆめタウン', 'ゆめタウン', 'ザ・ビッグ', 'ザ・ビッグ',
+        'ミスターマックス',
+        'なかやま牧場', 'なかやま牧場', 'なかやま牧場', 'なかやま牧場',
+        'なかやま牧場', 'なかやま牧場',
+        'マルナカ', 'Ａ−プライス',
+        'ニチエー', 'ニチエー', 'ニチエー', 'ニチエー',
+        '生鮮食品 おだ'
+    ]
+}
+
+# 追加データにロゴファイルと情報を補完
+def fill_info(brand, data_key):
+    existing_brand_indices = [i for i, b in enumerate(EXISTING_DATA['brand']) if b == brand]
+    safe_brand_name = brand.lower().replace(' ', '').replace('［', '').replace('］', '').replace('−', '')
+    
+    if data_key == 'logo_file':
+        if existing_brand_indices:
+            return EXISTING_DATA['logo_file'][existing_brand_indices[0]]
+        else:
+            return f"logo_{safe_brand_name}.png"
+            
+    elif data_key == 'website':
+        return 'https://fukuyama-super-info.com/' 
+    elif existing_brand_indices:
+        return EXISTING_DATA[data_key][existing_brand_indices[0]]
+    else:
+        return f'{brand}: 本日の特売情報は店頭にて！ (ダミー情報)'
+
+for data_key in ['logo_file', 'website', 'souzai_info', 'sengyo_info', 'niku_info', 'seika_info']:
+    NEW_DATA[data_key] = [
+        fill_info(brand, data_key) for brand in NEW_DATA['brand']
+    ]
+
+# データの結合
+df = pd.concat([pd.DataFrame(EXISTING_DATA), pd.DataFrame(NEW_DATA)], ignore_index=True)
+
 
 # --- 1. 設定と画像合成用フォルダの準備 ---
 LOGO_FOLDER = 'logos'
@@ -89,9 +189,14 @@ PIN_BASE_IMAGE = 'pin_base.png'
 
 os.makedirs(LOGO_FOLDER, exist_ok=True)
 
+# PIN_COLORSを全ブランドに対応させるために更新
 PIN_COLORS = {
     'ハローズ': '#FBC02D', 'エブリイ': '#00BCD4', 'フレスタ': '#673AB7',
     'フジ': '#9C27B0', 'ラ・ムー': '#E91E63',
+    '業務スーパー': '#388E3C', 'ディオ': '#2196F3', 'オンリーワン': '#FF9800',
+    'ゆめタウン': '#E53935', 'ザ・ビッグ': '#8D6E63', 'ミスターマックス': '#546E7A',
+    'なかやま牧場': '#795548', 'マルナカ': '#4CAF50', 'Ａ−プライス': '#00BFA5',
+    'ニチエー': '#D32F2F', '生鮮食品 おだ': '#FF5722',
 }
 
 # --- 1-1. PIN_BASE_IMAGE が存在しない場合の代替作成 ---
@@ -101,23 +206,52 @@ if not os.path.exists(PIN_BASE_IMAGE):
     ImageDraw.Draw(img).ellipse((0, 0, 99, 99), fill='#CCCCCC')
     img.save(PIN_BASE_IMAGE)
 
-# --- 1-2. ロゴファイルが存在しない場合の代替作成 ---
+# --- 1-2. ロゴファイルが存在しない場合の代替作成 (ブランド名頭文字入り) ---
 def create_placeholder_logo(brand_name, size=(60, 60)):
     """ブランド名の頭文字を中央に配置した代替ロゴ画像を生成"""
+    
     logo_filename = df[df['brand'] == brand_name]['logo_file'].iloc[0]
     logo_path = os.path.join(LOGO_FOLDER, logo_filename)
-    if not os.path.exists(logo_path):
-        logging.warning(f"ロゴファイル '{logo_filename}' が見つかりませんでした。代替画像を生成します。")
-        try:
-            img = Image.new('RGBA', size, (0, 0, 0, 0))
-            draw = ImageDraw.Draw(img)
-            draw.ellipse((0, 0, size[0], size[1]), fill=PIN_COLORS.get(brand_name, '#CCCCCC'))
-            img.save(logo_path)
-        except Exception as e:
-            logging.error(f"代替ロゴファイルの生成に失敗しました: {e}")
+    
+    if os.path.exists(logo_path):
+        return
 
-# 全ブランドに対して代替ロゴ生成を試行
-for brand in PIN_COLORS.keys():
+    try:
+        logging.warning(f"ロゴファイル '{logo_filename}' が見つかりませんでした。代替画像を生成します。")
+
+        img = Image.new('RGBA', size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        pin_color = PIN_COLORS.get(brand_name, '#CCCCCC')
+        draw.ellipse((0, 0, size[0], size[1]), fill=pin_color)
+        
+        initial = brand_name[0]
+        
+        font = ImageFont.load_default() 
+        try:
+            font_path = "C:/Windows/Fonts/meiryo.ttc" if os.name == 'nt' else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            font = ImageFont.truetype(font_path, 30)
+        except Exception:
+            pass
+        
+        fill_color = "#FFFFFF"
+        
+        if hasattr(draw, 'textbbox'):
+            text_bbox = draw.textbbox((0, 0), initial, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+            x = (size[0] - text_width) // 2
+            y = (size[1] - text_height) // 2
+            draw.text((x, y), initial, font=font, fill=fill_color)
+        else:
+            draw.text((size[0]//4, size[1]//4), initial, fill=fill_color, font=font)
+
+
+        img.save(logo_path)
+    except Exception as e:
+        logging.error(f"代替ロゴファイルの生成に失敗しました (ブランド: {brand_name}): {e}")
+
+for brand in df['brand'].unique():
     create_placeholder_logo(brand)
 
 
@@ -140,17 +274,17 @@ def create_logo_pin_base64(logo_path, pin_base_path, pin_color='#CCCCCC', logo_s
         buffered = BytesIO()
         final_pin.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()
-    except FileNotFoundError:
+    except Exception as e:
+        logging.error(f"ピン画像合成中にエラーが発生しました: {e}. 単色ピンを使用します。")
         try:
             img = Image.new('RGBA', (100, 100), (0, 0, 0, 0))
             ImageDraw.Draw(img).ellipse((0, 0, 99, 99), fill=pin_color)
             buffered = BytesIO()
             img.save(buffered, format="PNG")
             return base64.b64encode(buffered.getvalue()).decode()
-        except Exception:
+        except Exception as e_fallback:
+            logging.error(f"単色ピン生成に失敗しました: {e_fallback}")
             return None
-    except Exception:
-        return None
 
 # --- 3. 各店舗のピン画像を生成し、Base64として辞書に格納 ---
 generated_pin_base64 = {}
@@ -163,30 +297,21 @@ for index, row in df.iterrows():
 
 
 # --- 4. Foliumマップの作成とマーカーの追加 ---
-# 福山市の平均座標 (中心付近)
 FUKUYAMA_CENTER = [34.50, 133.37]
 map_name = "m_temp"
+# 地図をクリック可能にするために、folium.Mapのデフォルトのフォールバックレイヤーを設定
 m_temp = folium.Map(location=FUKUYAMA_CENTER, zoom_start=12, name=map_name)
 marker_data_for_js = []
 
 for index, row in df.iterrows():
     pin_image_base64 = generated_pin_base64.get(index)
 
-    # ロゴ画像をポップアップ用にBase64エンコード
-    logo_base64_for_popup = ""
-    logo_file_path = os.path.join(LOGO_FOLDER, row['logo_file'])
-    if os.path.exists(logo_file_path):
-        try:
-            with open(logo_file_path, 'rb') as f:
-                logo_base64_for_popup = base64.b64encode(f.read()).decode()
-        except Exception:
-            pass
-
-    # ポップアップの内容
+    logo_base64_for_popup = generated_pin_base64.get(index, "").replace("data:image/png;base64,", "")
+            
     popup_html = f"""
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 250px;">
         <h4 style="margin: 0 0 8px 0; color: #333; border-bottom: 2px solid {PIN_COLORS.get(row['brand'], '#ccc')}; padding-bottom: 5px;">
-            <img src='data:image/png;base64,{logo_base64_for_popup}' alt='{row['brand']}ロゴ' style='height: 20px; vertical-align: middle; margin-right: 5px;'>
+            <img src='data:image/png;base64,{logo_base64_for_popup}' alt='{row['brand']}ロゴ' style='height: 20px; vertical-align: middle; margin-right: 5px; background-color: {PIN_COLORS.get(row['brand'], '#ccc')}; border-radius: 5px;'>
             {row['name']}
         </h4>
         <p style="margin: 5px 0;"><a href="{row['website']}" target="_blank" style="color: #007bff; text-decoration: none;"><i class="fas fa-globe"></i> 公式ウェブサイト</a></p>
@@ -214,10 +339,8 @@ for index, row in df.iterrows():
         tooltip=row['name']
     ).add_to(m_temp)
 
-    # マーカーにIDとブランド情報を追加 (JSで利用するため)
     marker.add_child(folium.Element(f"<div id='marker-{index}' data-brand='{row['brand']}' class='custom-marker-info'></div>"))
 
-    # マーカーデータをリストに追加（JSで利用）
     marker_data_for_js.append({
         'id': f'marker-{index}',
         'name': row['name'],
@@ -226,13 +349,12 @@ for index, row in df.iterrows():
         'sengyo': row['sengyo_info'],
         'niku': row['niku_info'],
         'seika': row['seika_info'],
-        'layer_id': marker._id, # Leaflet IDを記録
+        'layer_id': marker._id,
         'lat': row['lat'],
         'lon': row['lon'],
-        'distance': 0 # 初期値
+        'distance': 0
     })
 
-# JavaScriptに渡すデータをJSON文字列に変換
 marker_data_json = json.dumps(marker_data_for_js)
 pin_colors_json = json.dumps(PIN_COLORS)
 fukuyama_center_json = json.dumps(FUKUYAMA_CENTER)
@@ -245,15 +367,54 @@ app_ui_elements = rf"""
 <style>
     /* --- CSSスタイル --- */
 
+    /* ホーム画面/ローディング画面の強化 */
     #loading-mask {{
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background-color: #2c3e50; color: white; display: flex; justify-content: center; align-items: center;
+        background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%); /* グラデーション背景 */
+        color: white; display: flex; justify-content: center; align-items: center;
         flex-direction: column; z-index: 1000000; font-family: 'Segoe UI', Arial, sans-serif;
+        animation: fadeIn 0.5s ease-in-out;
     }}
-    #loading-title {{ font-size: 2.5em; margin-bottom: 10px; font-weight: bold; color: #4CAF50; }}
-    #loading-subtitle {{ font-size: 1.1em; margin-bottom: 30px; color: #ddd; }}
-    #start-button {{ padding: 15px 30px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; background-color: #FBC02D; color: #333; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: background-color 0.2s, transform 0.1s; }}
-    #start-button:hover {{ background-color: #FFD54F; transform: translateY(-2px); }}
+    @keyframes fadeIn {{
+        from {{ opacity: 0; }}
+        to {{ opacity: 1; }}
+    }}
+    #loading-title {{ 
+        font-size: 3.5em; 
+        margin-bottom: 5px; 
+        font-weight: 800; 
+        color: #fff; 
+        text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        animation: pulse 1.5s infinite;
+    }}
+    @keyframes pulse {{
+        0% {{ transform: scale(1); }}
+        50% {{ transform: scale(1.05); }}
+        100% {{ transform: scale(1); }}
+    }}
+    #loading-subtitle {{ 
+        font-size: 1.2em; 
+        margin-bottom: 40px; 
+        color: #C8E6C9; 
+        font-weight: 300; 
+    }}
+    #start-button {{ 
+        padding: 18px 40px; 
+        font-size: 1.4em; 
+        font-weight: bold; 
+        border: none; 
+        border-radius: 30px; 
+        background-color: #FFC107; /* マップカラーに合わせて明るく */
+        color: #333; 
+        cursor: pointer; 
+        box-shadow: 0 6px 15px rgba(0,0,0,0.3); 
+        transition: background-color 0.2s, transform 0.1s; 
+    }}
+    #start-button:hover {{ 
+        background-color: #FFD54F; 
+        transform: translateY(-3px); 
+    }}
+    /* --- その他のUIスタイル (変更なし) --- */
 
     body {{ margin: 0; overflow: hidden; }}
     #map_{map_name} {{ position: absolute; top: 0; bottom: 0; right: 0; left: 0; z-index: 1; }}
@@ -272,11 +433,11 @@ app_ui_elements = rf"""
     #sidebar.open ~ #hamburger {{ display: none; }}
     .bar {{ width: 100%; height: 3px; background-color: #333; transition: 0.4s; }}
 
-    /* 位置ボタンのz-indexを最大に設定し、クリックを確実に受け取る */
     #locate-button {{
         position: fixed; bottom: 20px; left: 20px;
-        z-index: 100005; /* 最大値に設定 */
-        background-color: #4CAF50; color: white; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 1.5em; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; transition: background-color 0.2s, transform 0.2s;
+        z-index: 100005; 
+        background-color: #FF9800; /* オレンジに変更 */
+        color: white; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 1.5em; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; transition: background-color 0.2s, transform 0.2s;
     }}
     #details-button {{ position: fixed; bottom: 20px; right: 20px; z-index: 99999; background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-size: 1em; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; transition: background-color 0.2s, transform 0.2s; }}
 
@@ -321,14 +482,14 @@ app_ui_elements = rf"""
 </style>
 
 <div id="loading-mask">
-    <div id="loading-title"><i class="fas fa-shopping-basket"></i> スーパーマーケット マップ</div>
-    <div id="loading-subtitle">新鮮な惣菜・鮮魚・精肉・青果の情報と店舗位置をチェック！</div>
-    <button id="start-button" onclick="startApp()"><i class="fas fa-play-circle"></i> マップを見る</button>
+    <div id="loading-title"><i class="fas fa-map-marked-alt"></i> SMAP - Supermarket Map App</div>
+    <div id="loading-subtitle">福山市内の全店舗の特売情報と、最寄り店舗をすぐに検索！ (全{df.shape[0]}店舗)</div>
+    <button id="start-button" onclick="startApp()"><i class="fas fa-play-circle"></i> マップを起動する</button>
 </div>
 
 <div id="map-info">
-    <i class="fas fa-search-location" style="color:#007bff;"></i> 福山市スーパーマーケット情報
-    <span style="display: block; font-size: 0.8em; font-weight: normal; color: #555;">(基準点: 穴吹ビジネス専門学校)</span>
+    <i class="fas fa-search-location" style="color:#007bff;"></i> スーパーマーケット情報
+    <span id="map-info-text" style="display: block; font-size: 0.8em; font-weight: normal; color: #555;">(基準点: 穴吹ビジネス専門学校)</span>
 </div>
 
 <div id="sidebar">
@@ -351,7 +512,7 @@ app_ui_elements = rf"""
 """
 # 各ブランドのチェックボックスを動的に追加
 for brand, color in PIN_COLORS.items():
-    safe_brand_id = brand.replace(' ', '')
+    safe_brand_id = brand.replace(' ', '').replace('［', '').replace('］', '').replace('−', '')
     app_ui_elements += f"""
     <div class="filter-item" onclick="document.getElementById('filter-{safe_brand_id}').checked = !document.getElementById('filter-{safe_brand_id}').checked; filterMarkers('{brand}', document.getElementById('filter-{safe_brand_id}').checked)">
         <label for="filter-{safe_brand_id}">
@@ -378,7 +539,7 @@ app_ui_elements += rf"""
 </div>
 
 <button id="locate-button" onclick="locateUser()">
-    <i class="fas fa-crosshairs"></i>
+    <i class="fas fa-street-view"></i>
 </button>
 
 <button id="details-button" onclick="showDetailsTable()">
@@ -414,15 +575,22 @@ app_ui_elements += rf"""
     const FUKUYAMA_CENTER_JS = {fukuyama_center_json};
     let currentFilteredBrands = new Set();
     const layerControl = {{}};
-    // Base64化されたピン画像をグローバルに利用できるように定義
     const generated_pin_base64_js = {json.dumps(generated_pin_base64)};
 
+    // --- 基準点とデモ現在地の定義 ---
+    const INITIAL_REFERENCE_LAT = 34.49178298;
+    const INITIAL_REFERENCE_LON = 133.3690471;
+    const INITIAL_REFERENCE_NAME = "穴吹ビジネス専門学校";
 
-    // ★★★ 穴吹ビジネス専門学校の座標を基準点として定義 ★★★
-    const ANABUKI_COLLEGE_LAT = 34.49178298;
-    const ANABUKI_COLLEGE_LON = 133.3690471;
-    const REFERENCE_POINT_NAME = "穴吹ビジネス専門学校";
-    // ★★★ 基準点の定義ここまで ★★★
+    const DEMO_LOCATION_LAT = 34.485; 
+    const DEMO_LOCATION_LON = 133.365;
+    const DEMO_REFERENCE_NAME = "デモ現在地 (ボタン)";
+
+    // 現在使用している基準点
+    let currentReferenceLat = INITIAL_REFERENCE_LAT;
+    let currentReferenceLon = INITIAL_REFERENCE_LON;
+    let currentReferenceName = INITIAL_REFERENCE_NAME;
+    let currentLocationMarker = null; // 現在地のマーカーを保持するための変数
 
     // Leaflet Layersをブランドごとにグループ化
     mapElement.eachLayer(layer => {{
@@ -439,19 +607,20 @@ app_ui_elements += rf"""
 
     // 緯度経度から距離(メートル)を計算する関数
     function getDistance(lat1, lon1, lat2, lon2) {{
-        const R = 6371; // 地球の半径 (km)
+        const R = 6371; 
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
         const a =
             Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        // メートル単位で整数化して返す
         return Math.round(R * c * 1000);
     }}
 
     $(document).ready(function() {{
         filterMarkers('all', true);
+        // ★修正点：初期状態でマップクリックイベントを登録★
+        mapElement.on('click', onMapClick); 
     }});
 
     function startApp() {{
@@ -476,8 +645,19 @@ app_ui_elements += rf"""
     function filterMarkers(brandToFilter, isChecked) {{
         const filterAllCheckbox = document.getElementById('filter-all');
         const allBrands = new Set(Object.keys(layerControl));
+        
+        const getBrandNameFromFilterId = (id) => {{
+            const filterPrefix = 'filter-';
+            const safeId = id.substring(filterPrefix.length);
+            for (const brand of allBrands) {{
+                if (brand.replace(' ', '').replace('［', '').replace('］', '').replace('−', '') === safeId) {{
+                    return brand;
+                }}
+            }}
+            return null;
+        }};
 
-        // フィルタリングロジック
+        // フィルタリングロジック (地図上のピンの表示/非表示のみを制御)
         if (brandToFilter === 'all') {{
             if (isChecked) {{
                 document.querySelectorAll('.filter-item input[type="checkbox"]').forEach(cb => {{
@@ -485,16 +665,22 @@ app_ui_elements += rf"""
                 }});
                 currentFilteredBrands = new Set(allBrands);
             }} else {{
-                const anyOtherChecked = Array.from(document.querySelectorAll('.filter-item input[type="checkbox"]')).some(cb => cb.id !== 'filter-all' && cb.checked);
-                if (!anyOtherChecked) {{ filterAllCheckbox.checked = true; return; }}
+                const checkedBrands = Array.from(document.querySelectorAll('.filter-item input[type="checkbox"]'))
+                                         .filter(cb => cb.id !== 'filter-all' && cb.checked)
+                                         .map(cb => getBrandNameFromFilterId(cb.id))
+                                         .filter(b => b);
 
-                currentFilteredBrands = new Set(Array.from(document.querySelectorAll('.filter-item input[type="checkbox"]'))
-                                                .filter(cb => cb.id !== 'filter-all' && cb.checked)
-                                                .map(cb => allMarkersData.find(d => 'filter-' + d.brand.replace(' ', '') === cb.id.replace('filter-', ''))?.brand)
-                                                .filter(b => b));
+                if (checkedBrands.length === 0) {{ 
+                    filterAllCheckbox.checked = true; 
+                    currentFilteredBrands = new Set(allBrands);
+                    return; 
+                }}
+
+                currentFilteredBrands = new Set(checkedBrands);
             }}
         }} else {{
             const originalBrandName = brandToFilter;
+
             if (isChecked) {{
                 currentFilteredBrands.add(originalBrandName);
             }} else {{
@@ -504,70 +690,88 @@ app_ui_elements += rf"""
             if (currentFilteredBrands.size === 0) {{
                 filterAllCheckbox.checked = true;
                 currentFilteredBrands = new Set(allBrands);
-                 document.querySelectorAll('.filter-item input[type="checkbox"]').forEach(cb => {{
+                document.querySelectorAll('.filter-item input[type="checkbox"]').forEach(cb => {{
                     if (cb.id !== 'filter-all') cb.checked = false;
                 }});
-            }} else if (currentFilteredBrands.size > 0 && filterAllCheckbox.checked) {{
+            }} else {{
                 filterAllCheckbox.checked = false;
+                
+                currentFilteredBrands = new Set(Array.from(document.querySelectorAll('.filter-item input[type="checkbox"]'))
+                                         .filter(cb => cb.id !== 'filter-all' && cb.checked)
+                                         .map(cb => getBrandNameFromFilterId(cb.id))
+                                         .filter(b => b));
             }}
         }}
 
-        if (filterAllCheckbox.checked) {{
-             document.querySelectorAll('.filter-item input[type="checkbox"]').forEach(cb => {{
-                if (cb.id !== 'filter-all') cb.checked = false;
-            }});
-            currentFilteredBrands = new Set(allBrands);
-        }}
-
+        // 地図上のマーカー表示/非表示を切り替え
         allBrands.forEach(brand => {{
             const opacity = currentFilteredBrands.has(brand) ? 1 : 0;
             const zIndex = currentFilteredBrands.has(brand) ? 1000 : 0;
             if (layerControl[brand]) {{
                 layerControl[brand].forEach(layer => {{
                     layer.setOpacity(opacity);
-                    layer.setZIndexOffset(zIndex);
+                    layer.setZIndexOffset(zIndex); 
                 }});
             }}
         }});
-
-        // フィルター変更時に詳細パネルが開いていた場合、内容を更新する
+        
+        // フィルタリング状態が変更された際、詳細パネルが開いていたら更新する
         if ($('#details-panel').css('display') === 'flex') {{
             showDetailsTable();
         }}
     }}
 
-    // ★★★ 修正された locateUser() 関数 (デモモード) ★★★
+    // ★★★ 修正: locateUser() 関数 (デモ現在地の設定) ★★★
     function locateUser() {{
-        // デモメッセージを表示
-        alert("これはデモです。");
+        alert("現在地を福山市中心付近に設定し、最寄り店舗を計算します。\n(このボタンはデモ機能です。地図上の任意の場所をクリックして基準点を設定することもできます。)");
 
-        // マップを基準点に移動
-        mapElement.setView([ANABUKI_COLLEGE_LAT, ANABUKI_COLLEGE_LON], 14);
+        // 基準点をデモ現在地に切り替え
+        currentReferenceLat = DEMO_LOCATION_LAT;
+        currentReferenceLon = DEMO_LOCATION_LON;
+        currentReferenceName = DEMO_REFERENCE_NAME;
 
-        // 既存の現在地マーカーを削除
-        mapElement.eachLayer(layer => {{
-            if (layer.options && layer.options.className === 'current-location-marker') mapElement.removeLayer(layer);
-        }});
+        // マップをデモ現在地に移動
+        mapElement.setView([currentReferenceLat, currentReferenceLon], 14);
 
-        // 基準点マーカーを設置
-        L.marker([ANABUKI_COLLEGE_LAT, ANABUKI_COLLEGE_LON], {{
-            icon: L.divIcon({{
-                className: 'current-location-marker',
-                html: '<div style="color: #007bff; font-size: 20px; text-align: center;"><i class="fas fa-graduation-cap fa-2x"></i></div>',
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-            }}),
-            zIndexOffset: 2000
-        }}).addTo(mapElement).bindPopup(`${{REFERENCE_POINT_NAME}} (基準点)`).openPopup();
-
-        // 詳細テーブルを表示
+        updateReferenceMarker();
         showDetailsTable();
     }}
-    // ★★★ 修正された locateUser() 関数 (デモモード) ★★★
+    // ★★★ 修正: locateUser() 関数 終わり ★★★
+    
+    // ★★★ 新規追加: onMapClick 関数 (地図クリックで現在地設定) ★★★
+    function onMapClick(e) {{
+        currentReferenceLat = e.latlng.lat;
+        currentReferenceLon = e.latlng.lng;
+        currentReferenceName = `クリック地点 (${{currentReferenceLat.toFixed(4)}}, ${{currentReferenceLon.toFixed(4)}})`;
 
+        updateReferenceMarker();
+        showDetailsTable();
+    }}
+
+    // ★★★ 新規追加: 基準点マーカーの更新処理を共通化 ★★★
+    function updateReferenceMarker() {{
+        // 既存の現在地マーカーを削除
+        if (currentLocationMarker) {{
+            mapElement.removeLayer(currentLocationMarker);
+            currentLocationMarker = null;
+        }}
+
+        // 新しい基準点マーカーを設置
+        currentLocationMarker = L.marker([currentReferenceLat, currentReferenceLon], {{
+            icon: L.divIcon({{
+                className: 'current-location-marker',
+                html: '<div style="color: #FF9800; font-size: 20px; text-align: center;"><i class="fas fa-map-marker-alt fa-2x"></i></div>', // 地図クリック用にアイコン変更
+                iconSize: [40, 40],
+                iconAnchor: [15, 30] // ピンの先端が座標に来るように調整
+            }}),
+            zIndexOffset: 2000
+        }}).addTo(mapElement).bindPopup(`${{currentReferenceName}}`).openPopup();
+        
+        // 地図上の情報オーバーレイを更新
+        $('#map-info-text').html(`(基準点: ${{currentReferenceName}} Lat: ${{currentReferenceLat.toFixed(4)}}, Lon: ${{currentReferenceLon.toFixed(4)}})`);
+    }}
 
     function openMarkerPopup(lat, lon, layerId) {{
-        // クリック時のズームレベルを調整 (現在のズームレベルか14の大きい方)
         const currentZoom = mapElement.getZoom();
         const targetZoom = Math.max(currentZoom, 14);
 
@@ -585,24 +789,24 @@ app_ui_elements += rf"""
     }}
 
 
-    // ★★★ 店舗名リスト表示機能 (距離計算とソート) ★★★
+    // ★★★ 修正: showDetailsTable() 関数 (フィルタリング状態を反映させる) ★★★
     function showDetailsTable() {{
         const panel = document.getElementById('details-panel');
         const tableContainer = document.getElementById('table-container');
 
-        // フィルタリング
-        let filteredData = allMarkersData.filter(d => currentFilteredBrands.has(d.brand));
+        // ★修正点1: 地図でチェックされているブランドのみをフィルタリング★
+        let dataForList = allMarkersData.filter(d => currentFilteredBrands.has(d.brand));
 
-        // 距離計算（穴吹ビジネス専門学校からの距離）とデータへの追加
         let closestStore = null;
         let minDistance = Infinity;
 
-        filteredData.forEach(data => {{
+        dataForList.forEach(data => {{
+            // 現在設定されている基準点 (currentReferenceLat/Lon) を使用して距離を計算
             const distanceMeters = getDistance(
-                ANABUKI_COLLEGE_LAT, ANABUKI_COLLEGE_LON,
+                currentReferenceLat, currentReferenceLon,
                 data.lat, data.lon
             );
-            data.distance = distanceMeters; // メートル単位で格納
+            data.distance = distanceMeters;
 
             if (distanceMeters < minDistance) {{
                 minDistance = distanceMeters;
@@ -611,19 +815,16 @@ app_ui_elements += rf"""
         }});
 
         // 距離順でソート
-        filteredData.sort((a, b) => a.distance - b.distance);
+        dataForList.sort((a, b) => a.distance - b.distance);
 
-        // 情報テキストを構築
-        let distanceStatus = `<span style="color: #007bff;"><i class="fas fa-route"></i> <strong>${{REFERENCE_POINT_NAME}}</strong>からの距離順に表示しています。</span>`;
+        let distanceStatus = `<span style="color: #007bff;"><i class="fas fa-route"></i> <strong>${{currentReferenceName}}</strong>からの距離順に表示しています。</span>`;
         let closestStoreMessage = '';
 
-        // フィルター後のデータが存在する場合のみ最寄店舗を表示
-        if (closestStore && filteredData.length > 0) {{
-            // 表示用にメートルをキロメートルに変換し、小数点第2位まで表示
+        if (dataForList.length === 0) {{
+             distanceStatus = `<span style="color: #dc3545;"><i class="fas fa-times-circle"></i> フィルター条件に一致する店舗がありません。</span>`;
+        }} else if (closestStore) {{
             const formattedDistance = (closestStore.distance / 1000).toFixed(2) + ' km';
             closestStoreMessage = `<p style="margin: 5px 0 0 0; font-weight: bold; color: #E91E63;"><i class="fas fa-map-pin"></i> 最寄りの店舗は「${{closestStore.name}}」で、約 ${{formattedDistance}} です！</p>`;
-        }} else if (filteredData.length === 0) {{
-             distanceStatus = `<span style="color: #dc3545;"><i class="fas fa-times-circle"></i> フィルター条件に一致する店舗がありません。</span>`;
         }}
 
         const infoTextHTML = `
@@ -636,43 +837,35 @@ app_ui_elements += rf"""
         let listHTML = infoTextHTML;
         listHTML += `<ul id="super-list">`;
 
-        if (filteredData.length === 0) {{
-             listHTML += `<li style="text-align: center; color: #777; cursor: default; border: none; box-shadow: none;">フィルター条件に一致する店舗がありません。</li>`;
-        }} else {{
-            filteredData.forEach(data => {{
-                const brandColor = PIN_COLORS_JS[data.brand] || '#333';
-                // 表示用にメートルをキロメートルに変換し、小数点第2位まで表示
-                const distanceKm = (data.distance / 1000).toFixed(2);
+        // フィルタリングされたデータ（表示中のブランドのみ）を表示
+        dataForList.forEach(data => {{
+            const brandColor = PIN_COLORS_JS[data.brand] || '#333';
+            const distanceKm = (data.distance / 1000).toFixed(2);
 
-                // Base64画像URLを直接取得
-                const dataIndex = allMarkersData.findIndex(d => d.id === data.id);
-                const logoBase64Url = generated_pin_base64_js[dataIndex];
+            const dataIndex = allMarkersData.findIndex(d => d.id === data.id);
+            const logoBase64Url = generated_pin_base64_js[dataIndex];
 
 
-                listHTML += `
-                    <li onclick="openMarkerPopup(${{data.lat}}, ${{data.lon}}, ${{data.layer_id}})" style="border-left: 5px solid ${{brandColor}};">
-                        <img src="${{logoBase64Url}}"
-                             onerror="this.style.display='none'"
-                             style="height: 25px; width: 25px; object-fit: contain; flex-shrink: 0;">
-                        <div class="info-block">
-                            <span class="store-name">${{data.name}}</span>
-                            <span class="brand-name">ブランド: ${{data.brand}}</span>
-                        </div>
-                        <span class="distance-info">${{distanceKm}} km</span>
-                    </li>
-                `;
-            }});
-        }}
+            listHTML += `
+                <li onclick="openMarkerPopup(${{data.lat}}, ${{data.lon}}, ${{data.layer_id}})" style="border-left: 5px solid ${{brandColor}};">
+                    <img src="${{logoBase64Url}}"
+                         onerror="this.style.display='none'"
+                         style="height: 25px; width: 25px; object-fit: contain; flex-shrink: 0; background-color: ${{brandColor}}; border-radius: 50%;">
+                    <div class="info-block">
+                        <span class="store-name">${{data.name}}</span>
+                        <span class="brand-name">ブランド: ${{data.brand}}</span>
+                    </div>
+                    <span class="distance-info">${{distanceKm}} km</span>
+                </li>
+            `;
+        }});
 
         listHTML += `</ul>`;
         tableContainer.innerHTML = listHTML;
 
-        // 最後にパネルを開く
         panel.style.display = 'flex';
     }}
-    // ★★★ 店舗名リスト表示機能 終わり ★★★
 
-    // ★★★ 追加機能: ポップアップからの特売比較パネル ★★★
     function showComparisonPanel(storeName) {{
         const store = allMarkersData.find(d => d.name === storeName);
         if (!store) return;
@@ -699,10 +892,8 @@ app_ui_elements += rf"""
         $('#comparison-data').html(detailHtml);
         $('#comparison-panel').fadeIn(200);
 
-        // ポップアップを閉じる
         mapElement.closePopup();
     }}
-    // ★★★ 追加機能 終わり ★★★
 
 </script>
 """
@@ -721,13 +912,14 @@ modified_html_content = html_content[:insertion_point] + app_ui_elements + html_
 with open(file_path, 'w', encoding='utf-8') as f:
     f.write(modified_html_content)
 
-print(f"\n✅ 処理が完了しました！マップをアプリウィンドウで起動します...")
+print(f"\n✅ 処理が完了しました！全{df.shape[0]}店舗の情報を地図に組み込みました。")
+print("🔥 新機能: 地図上の任意の場所をクリックすると、そこが現在地(基準点)となり、詳細リストが更新されます。")
 
-# --- ★追加: 生成したHTMLをアプリのウィンドウで開く ---
+# --- 生成したHTMLをアプリのウィンドウで開く ---
 webview.create_window(
-    "スーパーマーケットマップ アプリ",  # ウィンドウのタイトル
-    file_path,                      # 表示するHTMLファイル
-    width=1200, height=800,         # ウィンドウのサイズ
-    resizable=True                  # サイズ変更を許可
+    f"SMAP - Supermarket Map App (全{df.shape[0]}店舗)", 
+    file_path,               
+    width=1200, height=800,  
+    resizable=True           
 )
-webview.start() # アプリを開始（ウィンドウが閉じられるまでここで処理が止まります）
+webview.start()
